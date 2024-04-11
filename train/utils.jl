@@ -3,55 +3,14 @@ using Flux
 using MLDatasets, CUDA
 using Flux.Data: DataLoader
 using ProgressMeter
+using CairoMakie: Figure, lines, lines!, hidespines!, hidexdecorations!, Axis, save
 
-
-function train_model!(model, loss, opt, data, epochs=100)
-    θ = params(model)
-    for i in 1:epochs
-        println("$i")
-        train!(loss, θ, data, opt)
-    end
-end
-
-
-function get_data()
-    x_train, y_train = MLDatasets.MNIST(split=:train)[:]
-    x_test, y_test = MLDatasets.MNIST(split=:test)[:]
-
-    # Convert grayscale to float
-    x_train = Float32.(x_train)
-    y_train = Float32.(y_train)
-
-    # Create labels batch
-    x_train = flatten(x_train)
-    y_train = flatten(y_train)
-    x_test = flatten(x_test)
-    y_test = flatten(y_test)
-
-    y_train_one_hot = flatten(onehotbatch(y_train, 0:9))
-    y_test_one_hot = flatten(onehotbatch(y_test, 0:9))
-
-
-    return (x_train, y_train, y_train_one_hot), (x_test, y_test, y_test_one_hot)
-
-end
 
 function classify(model, x)
     ŷ = model(x)
     idxs = Tuple.(argmax(ŷ, dims=1))
     return vec(Float32.(first.(idxs)) .- 1.0)
 end
-
-# function accuracy(model, x, labels)
-#     predicted = classify(model, x)
-#     num_common_elements = 0
-#     for (el1, el2) in zip(predicted, labels)
-#         if el1 == el2
-#             num_common_elements += 1
-#         end
-#     end
-#     num_common_elements / length(predicted)
-# end
 
 function accuracy(data_loader, model)
     acc = 0
@@ -78,6 +37,61 @@ function createloader(dataset=MLDatasets.MNIST; batchsize::Int=256)
     )
     return train_loader, test_loader
 end
+
+function show_accuracies(history)
+    f = Figure()
+    ax1 = Axis(f[1, 1])
+    ax2 = Axis(f[1, 1], yaxisposition = :right)
+    hidespines!(ax2)
+    hidexdecorations!(ax2)
+
+    lines!(ax1, history.smooth_acc, color = :red)
+    lines!(ax1, history.discrete_acc, color = :orange)
+    if :λ1 in keys(history)
+        lines!(ax2, history.λ1, color = :darkblue)
+    end
+    if :λ2 in keys(history)
+        lines!(ax2, history.λ2, color = :aqua)
+    end
+
+    f
+end
+
+function show_regularization(history)
+    f = Figure()
+    ax1 = Axis(f[1, 1])
+    ax2 = Axis(f[1, 1], yaxisposition = :right)
+    hidespines!(ax2)
+    hidexdecorations!(ax2)
+
+    lines!(ax1, history.smooth_acc, color = :red)
+    lines!(ax1, history.discrete_acc, color = :orange)
+    # if :ar in keys(history)
+    # end
+    lines!(ax2, history.ar, color = :darkblue)
+    if :λ2 in keys(history)
+        lines!(ax2, history.λ2, color = :aqua)
+    end
+
+    f
+end
+
+
+function show_slope(history)
+    f = Figure()
+    ax1 = Axis(f[1, 1])
+    ax2 = Axis(f[1, 1], yaxisposition = :right)
+    hidespines!(ax2)
+    hidexdecorations!(ax2)
+
+    lines!(ax1, history.smooth_acc, color = :black)
+    lines!(ax1, history.binact_acc, color = :black)
+    lines!(ax2, history.slope, color = :black)
+
+    f
+end
+
+
 
 function train_model(model, opt, train, test; loss=logitcrossentropy, epochs::Int=30)
     p = Progress(epochs, 1)

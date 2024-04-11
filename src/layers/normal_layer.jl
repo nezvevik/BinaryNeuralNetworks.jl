@@ -6,7 +6,7 @@ struct Layer{M<:AbstractMatrix,B,F,N}
     batchnorm::N
 end
 
-
+Flux.@functor Layer
 function Layer(
     input_size::Int,
     output_size::Int,
@@ -48,15 +48,6 @@ end
 # function activation_regulizer(l::Layer)
 #     activation_regulizer(l.W)
 # end
-
-
-function Flux.params(c::Flux.Chain)
-    θ = []
-    for l in c.layers
-        push!(θ, Flux.params(l)...)
-    end
-    return Params(θ)
-end
 
 # creates a normal neural network with binary weights
 function convert2binary(m::Chain)
