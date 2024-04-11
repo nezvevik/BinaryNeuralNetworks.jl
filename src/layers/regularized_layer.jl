@@ -8,6 +8,8 @@ struct RegularizedLayer{M<:AbstractMatrix,B,F,R,N}
     batchnorm::N
 end
 
+Flux.@functor RegularizedLayer
+
 function RegularizedLayer(
     input_size::Int,
     output_size::Int,
@@ -70,9 +72,4 @@ end
 function convert2binary(l::RegularizedLayer)
     bin_W = round.(l.ρ.(l.W))
     return BinaryNeuralNetwork.Layer(bin_W, l.b, sign, l.batchnorm)
-end
-
-# params
-function Flux.params(l::RegularizedLayer)
-    return Params([l.W, l.b])
 end

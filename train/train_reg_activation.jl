@@ -37,20 +37,16 @@ function objective(m, x, y)
     logitcrossentropy(m(x), y)
 end
 
-function train_activation(model, opt, train, loss; history = [],
-    epochs::Int=30, λ2=0.0000001,
-    lower_bound=0.85, upper_bound=0.92, factor=1.5)
+function train_activation_epochs(model, opt, train, loss; history = [],
+    epochs::Int=4, iterations=15,λmax=10e-3, λmin=10e-6)
     
-    p = Progress(epochs, 1)
+    p = Progress(epochs*iterations, 1)
     ps = params(model)
     # println(model)
     binact_model = convert2binary_activation(model)
     
-    ar = activation_regulizer(model, train)
-
-    
-    increasing_status = "Neutral"
-    
+    ar = activation_regulizer(model, train)  
+    λ2 =  λmin
     
     if length(history) == 0
         history = (
@@ -58,13 +54,12 @@ function train_activation(model, opt, train, loss; history = [],
             binact_acc=[accuracy(train, binact_model)],
             λ2=[λ2],
             λreg=[ar*λ2],
-            slope=[0.0],
-            ub=[upper_bound],
-            lb=[lower_bound],
             )
     end
-        
-    for _ in 1:epochs
+       
+    for iter in 0:iterations*epochs
+        i = iter % iterations + 1
+        trainmode!(model) 
         for (x, y) in train
             # new train
             # gs = gradient(() -> loss(model, x, y, λ2), ps)
@@ -72,52 +67,22 @@ function train_activation(model, opt, train, loss; history = [],
             Flux.update!(opt, ps, gs)
         end
         
+        testmode!(model)
         acc = accuracy(train, model)
         
-        
-        increasing_status = "Monotone"
-        if length(history.binact_acc) < 5
-            # pass
-        elseif acc > upper_bound
-            λ2 *= factor
-            increasing_status = "Increasing"
-        elseif acc < lower_bound
-            λ2 /= factor
-            increasing_status = "Decreasing"
-        end
-
+        binact_model = convert2binary_activation(model)
+        testmode!(binact_model)
         binact_acc = accuracy(train, binact_model)
-        if length(history.binact_acc) < 2
-            slope = 1
-        else
-            v1 = history.binact_acc[end - 1] + history.binact_acc[end]
-            v2 = history.binact_acc[end] + binact_acc
-            slope = (v2 - v1) / 2
-        end
-        
-        push!(history.slope, slope)
-
-        slope_avg = length(history.slope) >= 5 ? mean(history.slope[end-4:end]) : mean(history.slope)
-
-        slope_status = "Increasing"
-        if slope_avg < -0.02
-            slope_status = "Decreasing"
-            lower_bound = acc
-        elseif abs(slope_avg) < 0.0002
-            slope_status = "Monotone"
-            upper_bound = acc
-        end 
-
         
         ar = activation_regulizer(model, train)
-        binact_model = convert2binary_activation(model)
+
+        
+        λ2 = λmin + 1/2 * (λmax - λmin) * (1 + cos(i/(iterations) * π))
         
         push!(history.smooth_acc, acc)
         push!(history.binact_acc, binact_acc)
         push!(history.λ2, λ2)
         push!(history.λreg, ar * λ2)
-        push!(history.ub, upper_bound)
-        push!(history.lb, lower_bound)
 
         # print progress
         showvalues = [
@@ -125,28 +90,22 @@ function train_activation(model, opt, train, loss; history = [],
             (:acc_binary_activation, round(100 * history.binact_acc[end]; digits=2)),
             (:λ2, λ2),
             (:λreg, ar * λ2),
-            (:increasing_status, increasing_status),
-            (:slope, slope_avg),
-            (:ub, upper_bound),
-            (:lb, lower_bound),
-            (:slope_status, slope_status)
         ]
         ProgressMeter.next!(p; showvalues)
     end
     return history, λ2
 end
 
-λ2 = 10^(-6)
-upper_bound = 0.92
-lower_bound = 0.87
-epochs = 20
-factor = 2.0
+
+
+
+λ2 = 10e-7
+epochs = 2
+iterations = 30
 history = []
 
-λ2 *= 2
-λ2 /= 2
+history, λ2 = train_activation_epochs(model, AdaBelief(), train_data, objective, epochs=epochs, iterations=iterations,history=history)
 
-history, λ2 = train_activation(model, AdaBelief(), train_data, objective, epochs=epochs, history=history, λ2=λ2, upper_bound=upper_bound, lower_bound=lower_bound, factor=factor)
 
 f = show_fig(history)
 f = show_slope(history)
@@ -164,11 +123,9 @@ function show_fig(history)
 
     len = length(history.smooth_acc)
 
-    lines!(ax1, history.smooth_acc, color = :blue)
-    lines!(ax1, history.binact_acc, color = :blue)
-    lines!(ax1, history.ub, color = :black)
-    lines!(ax1, history.lb, color = :black)
-    lines!(ax2, history.λreg, color = :aqua)
+    lines!(ax1, history.smooth_acc, color = :red)
+    lines!(ax1, history.binact_acc, color = :orange)
+    lines!(ax2,history.λ2, color = :aqua)
 
     f
 end
