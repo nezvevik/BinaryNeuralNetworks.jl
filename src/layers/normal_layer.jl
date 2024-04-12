@@ -41,7 +41,7 @@ function weight_regulizer(m::Chain)
 end
 
 function weight_regulizer(l::Layer)
-    weight_regulizer(l.W)
+    ternary_regulizer(l.W)
 end
 
 # activation regulizer
@@ -49,15 +49,6 @@ end
 #     activation_regulizer(l.W)
 # end
 
+
 # creates a normal neural network with binary weights
-function convert2binary(m::Chain)
-    Chain(map(convert2binary, m.layers))
-end
 
-function convert2binary_activation(m::Chain)
-    Chain(map(convert2binary_activation, m.layers))
-end
-
-function convert2binary_weights(m::Chain)
-    Chain(map(convert2binary_weights, m.layers))
-end

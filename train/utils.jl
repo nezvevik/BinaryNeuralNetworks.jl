@@ -66,11 +66,11 @@ function show_regularization(history)
 
     lines!(ax1, history.smooth_acc, color = :red)
     lines!(ax1, history.discrete_acc, color = :orange)
-    # if :ar in keys(history)
-    # end
-    lines!(ax2, history.ar, color = :darkblue)
-    if :λ2 in keys(history)
-        lines!(ax2, history.λ2, color = :aqua)
+    if :ar in keys(history)
+        lines!(ax2, history.ar, color = :darkblue)
+    end
+    if :wr in keys(history)
+        lines!(ax2, history.wr, color = :aqua)
     end
 
     f

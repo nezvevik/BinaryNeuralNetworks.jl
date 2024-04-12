@@ -14,7 +14,7 @@ function RegularizedLayer(
     input_size::Int,
     output_size::Int,
     σ::Function,
-    ρ::Function=tanh,
+    ρ::Function=identity,
     batchnorm::Bool=true,
 )
     # use Float32
@@ -33,10 +33,6 @@ function (l::RegularizedLayer)(xr::Tuple)
     o = l(x)
     r = r + binary_regulizer(o)
     return (o, r)
-end
-
-function get_weights(l::RegularizedLayer)
-    return l.ρ.(l.W)
 end
 
 
@@ -59,17 +55,28 @@ function activation_regulizer(m::Union{Chain, RegularizedLayer, Layer}, x::VecOr
     return r
 end
 
-# convert2normal
+# convert network
+function convert2discrete(m::Chain)
+    Chain(map(convert2discrete, m.layers))
+end
+
+function convert2binary_activation(m::Chain)
+    Chain(map(convert2binary_activation, m.layers))
+end
+
+function convert2ternary_weights(m::Chain)
+    Chain(map(convert2ternary_weights, m.layers))
+end
+
 function convert2binary_activation(l::RegularizedLayer)
-    return BinaryNeuralNetwork.Layer(l.ρ.(l.W), l.b, sign, l.batchnorm)
+    RegularizedLayer(l.ρ.(l.W), l.b, binary_quantizer, identity, l.batchnorm)
 end
 
-function convert2binary_weights(l::RegularizedLayer)
-    bin_W = round.(l.ρ.(l.W))
-    return BinaryNeuralNetwork.Layer(bin_W, l.b, l.σ, l.batchnorm)
+function convert2ternary_weights(l::RegularizedLayer)
+    RegularizedLayer(ternary_quantizer(l.ρ.(l.W)), l.b, l.σ, identity, l.batchnorm)
 end
 
-function convert2binary(l::RegularizedLayer)
-    bin_W = round.(l.ρ.(l.W))
-    return BinaryNeuralNetwork.Layer(bin_W, l.b, sign, l.batchnorm)
+function convert2discrete(l::RegularizedLayer)
+    # RegularizedLayer(l.ρ.(l.W), l.b, binary_quantizer, identity, l.batchnorm)
+    RegularizedLayer(ternary_quantizer(l.ρ.(l.W)), l.b, binary_quantizer, identity, l.batchnorm)
 end

@@ -1,53 +1,77 @@
-using BinaryNeuralNetwork: RegularizedLayer, activation_regulizer
-using BinaryNeuralNetwork: convert2binary_weights, convert2binary_activation
-using Flux: Chain, AdaBelief, mse
+using BinaryNeuralNetwork: RegularizedLayer, weight_regulizer, activation_regulizer
+using BinaryNeuralNetwork: convert2binary_activation, convert2ternary_weights, convert2discrete
+using Flux: Chain, mse, crossentropy
 
-include("utils.jl")
-
-# get data
-train_data, test_data = createloader(batchsize=256)
-
-# init model
-# insert identity as weight regulizer
 model = Chain(
     RegularizedLayer(28^2, 256, tanh, identity),
+    RegularizedLayer(256, 256, tanh, identity),
     RegularizedLayer(256, 10, tanh, identity)
 )
 
 
-# default accuracy ≈ 0.1
-accuracy(train_data, model)
-accuracy(test_data, model)
+include("utils.jl")
+train_data, test_data = createloader(batchsize=256)
 
-# check default binary model accuracy
 binact_model = convert2binary_activation(model)
 accuracy(train_data, binact_model)
+activation_regulizer(binact_model, train_data)
 
-
-function objective(m, x, y, λ2::Float64=0.00000001)
-    logitcrossentropy(m(x), y) + λ2 * activation_regulizer(m, x)
-end
-
-function objective(m, x, y)
-    logitcrossentropy(m(x), y)
+# get data
+function mse_loss(m, data)
+    sum(logitcrossentropy(m(x), y) for (x, y) in data)
 end
 
 
-function train_activation_epochs(model, opt, train, loss; history = [],
-    epochs::Int=25, periods::Int=4, λmax=10e-3, λmin=10e-6)
+ar = activation_regulizer(model, train_data)
+p2 = round(log10(ar))
+
+l = mse_loss(model, train_data)
+
+# initialization of hyperparameters
+history = []
+periods = 1
+epochs = 10
+
+λ2min = 10^(- p2)
+λ2max = l / ar * 4
+
+# check
+λ2min * ar
+λ2max * ar
+
+
+function objective(m, x, y, λ2)
+    # Flux.Zygote.@ignore push!(history.ar, ar)
+    o, r = m((x, 0f0))
+    logitcrossentropy(o, y) + λ2 * r
+end
+
+history = train_reg_activation(
+    model, AdaBelief(), train_data, objective;
+    history=history, periods=periods, epochs=epochs,
+    λ2min=λ2min, λ2max=λ2max)
+
+show_accuracies(history)
+show_regularization(history)
+
+function train_reg_activation(model, opt, train, loss; history = [],
+    periods::Int=4, epochs::Int=25,
+    λ2min=10e-6, λ2max=10e-3)
     
     p = Progress(periods*epochs, 1)
     ps = params(model)
-    # println(model)
+
     binact_model = convert2binary_activation(model)
+    testmode!(binact_model)
     
     ar = activation_regulizer(model, train)  
-    λ2 = λmin
+    λ2 = λ2min
     
     if length(history) == 0
         history = (
             smooth_acc=[accuracy(train, model)],
             discrete_acc=[accuracy(train, binact_model)],
+            loss=[mse_loss(model, train)],
             λ2=[λ2],
             ar=[ar],
             )
@@ -70,13 +94,15 @@ function train_activation_epochs(model, opt, train, loss; history = [],
         testmode!(binact_model)
         discrete_acc = accuracy(train, binact_model)
         
+
         ar = activation_regulizer(model, train)
 
         
-        λ2 = λmin + 1/2 * (λmax - λmin) * (1 + cos(i/(epochs) * π))
+        λ2 = λ2min + 1/2 * (λ2max - λ2min) * (1 + cos(i/(epochs) * π))
         
         push!(history.smooth_acc, acc)
         push!(history.discrete_acc, discrete_acc)
+        push!(history.loss, mse_loss(model, train))
         push!(history.λ2, λ2)
         push!(history.ar, ar)
 
@@ -84,46 +110,14 @@ function train_activation_epochs(model, opt, train, loss; history = [],
         showvalues = [
             (:acc_smooth, round(100 * history.smooth_acc[end]; digits=2)),
             (:acc_binary_activation, round(100 * history.discrete_acc[end]; digits=2)),
+            (:loss, round(history.loss[end]; digits=4)),
             (:λ2, λ2),
             (:regularization, ar),
             (:λreg, ar * λ2),
         ]
         ProgressMeter.next!(p; showvalues)
     end
-    return history, λ2
+    return history
 end
 
-ar = activation_regulizer(model, train_data)
-ar *λmin
-ar * λmax
 
-
-
-periods = 1
-epochs = 30
-history = []
-λmax=10e-1
-λmin = 10e-6
-
-history, λ2 = train_activation_epochs(model, AdaBelief(), train_data, objective, epochs=epochs, periods=periods,history=history, λmin=λmin, λmax=λmax)
-
-
-f = show_accuracies(history)
-
-
-f = Figure()
-ax1 = Axis(f[1, 1])
-ax2 = Axis(f[1, 1], yaxisposition = :right)
-hidespines!(ax2)
-hidexdecorations!(ax2)
-
-lines!(ax1, history.smooth_acc, color = :red)
-lines!(ax1, history.discrete_acc, color = :orange)
-# if :ar in keys(history)
-# end
-lines!(ax2, history.ar, color = :darkblue)
-# if :λ2 in keys(history)
-#     lines!(ax2, history.λ2, color = :aqua)
-# end
-
-f

@@ -1,9 +1,7 @@
-using BinaryNeuralNetwork: RegularizedLayer, activation_regulizer, weight_regulizer
-using BinaryNeuralNetwork: convert2binary_weights, convert2binary_activation, convert2binary
-using Flux: Chain, AdaBelief, mse
+using BinaryNeuralNetwork: RegularizedLayer, weight_regulizer, activation_regulizer
+using BinaryNeuralNetwork: convert2ternary_weights, convert2binary_activation, convert2discrete
 
-using Statistics: mean
-
+using Flux: Chain, AdaBelief
 
 include("utils.jl")
 
@@ -24,172 +22,120 @@ accuracy(train_data, model)
 accuracy(test_data, model)
 
 # check default binary model accuracy
-binact_model = convert2binary_activation(model)
-accuracy(train_data, binact_model)
-
-binweight_model = convert2binary(model)
-accuracy(train_data, binweight_model)
+discrete_model = convert2discrete(model)
+accuracy(train_data, discrete_model)
 
 
-
-function objective(m, x, y, λ1::Float64, λ2::Float64)
-    logitcrossentropy(m(x), y) + λ1 * weight_regulizer(m) + λ2 * activation_regulizer(m, x)
+function objective(m, x, y, λ1::Float64=0.00000001, λ2::Float64=0.00000001)
+    mse(m(x), y) + λ1 * weight_regulizer(m) + λ2 * activation_regulizer(m, x)
 end
 
+# TODO early stopping
 
-function train_reg(model, opt, train, loss; history = [],
-    epochs::Int=30, λ1=0.0000001, λ2=0.0000001,
-    lower_bound=0.85, upper_bound=0.92, factor=1.5)
+function train_regularization(model, opt, train, loss; history = [],
+    epochs::Int=25, periods::Int=4,
+    λ1max=10e-3, λ1min=10e-6,
+    λ2max=10e-3, λ2min=10e-6)
     
-    p = Progress(epochs, 1)
+    p = Progress(periods*epochs, 1)
     ps = params(model)
     # println(model)
-    bin_model = convert2binary(model)
+    discrete_model = convert2discrete(model)
     
-    ar = activation_regulizer(model, train)
-
-    
-    increasing_status = "Neutral"
-    
+    wr = weight_regulizer(model)  
+    ar = activation_regulizer(model, train)  
+    λ1 = λ1min
+    λ2 = λ2min
     
     if length(history) == 0
         history = (
             smooth_acc=[accuracy(train, model)],
-            bin_acc=[accuracy(train, bin_model)],
+            discrete_acc=[accuracy(train, discrete_model)],
             λ1=[λ1],
             λ2=[λ2],
-            λreg=[ar*λ2],
-            slope=[0.0],
-            ub=[upper_bound],
-            lb=[lower_bound],
+            wr=[wr],
+            ar=[ar],
             )
     end
-        
-    for _ in 1:epochs
+       
+    for iter in 0:periods*epochs
+        i = iter % epochs + 1
+        trainmode!(model) 
         for (x, y) in train
             # new train
-            # gs = gradient(() -> loss(model, x, y, λ2), ps)
+            # gs = gradient(() -> loss(model, x, y, λ1), ps)
             gs = gradient(() -> loss(model, x, y, λ1, λ2), ps)
             Flux.update!(opt, ps, gs)
         end
         
+        testmode!(model)
         acc = accuracy(train, model)
         
+        discrete_model = convert2discrete(model)
+        testmode!(discrete_model)
+        discrete_acc = accuracy(train, discrete_model)
         
-        increasing_status = "Monotone"
-        if length(history.bin_acc) < 5
-            # pass
-        elseif acc > upper_bound
-            λ1 *= factor
-            λ2 *= factor
-            increasing_status = "Increasing"
-        elseif acc < lower_bound
-            λ1 /= factor
-            λ2 /= factor
-            increasing_status = "Decreasing"
-        end
+        wr = weight_regulizer(model)
+        ar = activation_regulizer(model, train)
 
-        bin_acc = accuracy(train, binary_model)
-        if length(history.bin_acc) < 2
-            slope = 1
-        else
-            v1 = history.bin_acc[end - 1] + history.bin_acc[end]
-            v2 = history.bin_acc[end] + bin_acc
-            slope = (v2 - v1) / 2
-        end
-        
-        push!(history.slope, slope)
-
-        slope_avg = length(history.slope) >= 5 ? mean(history.slope[end-4:end]) : mean(history.slope)
-
-        slope_status = "Increasing"
-        if slope_avg < -0.02
-            slope_status = "Decreasing"
-            lower_bound = acc
-        elseif abs(slope_avg) < 0.0002
-            slope_status = "Monotone"
-            upper_bound = acc
-        end 
-
-        
-        # ar = activation_regulizer(model, train)
-        binact_model = convert2binary_activation(model)
+        λ1 = λ1min + 1/2 * (λ1max - λ1min) * (1 + cos(i/(epochs) * π))
+        λ2 = λ2min + 1/2 * (λ2max - λ2min) * (1 + cos(i/(epochs) * π))
         
         push!(history.smooth_acc, acc)
-        push!(history.bin_acc, bin_acc)
+        push!(history.discrete_acc, discrete_acc)
         push!(history.λ1, λ1)
         push!(history.λ2, λ2)
-        push!(history.λreg, ar * λ2)
-        push!(history.ub, upper_bound)
-        push!(history.lb, lower_bound)
+        push!(history.wr, wr)
+        push!(history.ar, ar)
 
         # print progress
         showvalues = [
-            (:acc_train, round(100 * history.smooth_acc[end]; digits=2)),
-            (:acc_binary_activation, round(100 * history.bin_acc[end]; digits=2)),
+            (:acc_smooth, round(100 * history.smooth_acc[end]; digits=2)),
+            (:discrete_acc, round(100 * history.discrete_acc[end]; digits=2)),
             (:λ1, λ1),
             (:λ2, λ2),
-            (:λreg, ar * λ2),
-            (:increasing_status, increasing_status),
-            (:slope, slope_avg),
-            (:ub, upper_bound),
-            (:lb, lower_bound),
-            (:slope_status, slope_status)
+            (:wr, wr),
+            (:ar, ar),
+            (:λ1wr, λ1 * wr),
+            (:λ2ar, λ2 * ar),
         ]
         ProgressMeter.next!(p; showvalues)
     end
-    return history, λ1, λ2
+    return history
 end
 
-λ1 = 10^(-6)
-λ2 = 10^(-6)
-upper_bound = 0.92
-lower_bound = 0.87
-epochs = 20
-factor = 2.0
+
+wr = weight_regulizer(model)
+ar = activation_regulizer(model, train_data)
+
+p1 = round(log10(wr))
+p2 = round(log10(ar))
+
+λ1min = 10^(- p1 - 1)
+λ1max = λ1min * 10^3
+
+λ2min = 10^(- p2 - 1)
+λ2max = λ2min * 10^3
+
+
+λ1min*wr
+λ1max*wr
+
+λ2min*ar
+λ2max*ar
+
+λ1min = 0.0
+λ1max = 10e-3
+λ2min = 0.
+λ2max = 0.
+
+periods = 1
+epochs = 10
 history = []
 
-λ2 *= 2
-λ2 /= 2
-
-history, λ1, λ2 = train_reg(model, AdaBelief(), train_data, objective, epochs=epochs, history=history, λ1=λ1, λ2=λ2, upper_bound=upper_bound, lower_bound=lower_bound, factor=factor)
-
-f = show_fig(history)
-f = show_slope(history)
-
-save("70%-dlouhy trenink- jeste delsi.png", f)
+history =  train_regularization(model, AdaBelief(), train_data, objective, epochs=epochs, periods=periods, history=history, λ1min=λ1min, λ1max=λ1max, λ2min=λ2min, λ2max=λ2max)
 
 
-using CairoMakie: Figure, lines, lines!, hidespines!, hidexdecorations!, Axis, save
-function show_fig(history)
-    f = Figure()
-    ax1 = Axis(f[1, 1])
-    ax2 = Axis(f[1, 1], yaxisposition = :right)
-    hidespines!(ax2)
-    hidexdecorations!(ax2)
 
-    len = length(history.smooth_acc)
-
-    lines!(ax1, history.smooth_acc, color = :blue)
-    lines!(ax1, history.bin_acc, color = :blue)
-    lines!(ax1, history.ub, color = :black)
-    lines!(ax1, history.lb, color = :black)
-    lines!(ax2, history.λreg, color = :aqua)
-
-    f
-end
-
-function show_slope(history)
-    f = Figure()
-    ax1 = Axis(f[1, 1])
-    ax2 = Axis(f[1, 1], yaxisposition = :right)
-    hidespines!(ax2)
-    hidexdecorations!(ax2)
-
-    lines!(ax1, history.smooth_acc, color = :black)
-    lines!(ax1, history.bin_acc, color = :black)
-    lines!(ax2, history.slope, color = :black)
-
-    f
-end
-
+f = show_accuracies(history)
+f = show_regularization(history)
