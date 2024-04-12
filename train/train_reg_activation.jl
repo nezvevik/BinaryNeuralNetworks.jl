@@ -1,6 +1,6 @@
 using BinaryNeuralNetwork: RegularizedLayer, weight_regulizer, activation_regulizer
 using BinaryNeuralNetwork: convert2binary_activation, convert2ternary_weights, convert2discrete
-using Flux: Chain, mse, crossentropy
+using Flux: Chain, sum, crossentropy
 
 model = Chain(
     RegularizedLayer(28^2, 256, tanh, identity),
@@ -17,7 +17,7 @@ accuracy(train_data, binact_model)
 activation_regulizer(binact_model, train_data)
 
 # get data
-function mse_loss(m, data)
+function sum_loss(m, data)
     sum(logitcrossentropy(m(x), y) for (x, y) in data)
 end
 
@@ -25,7 +25,7 @@ end
 ar = activation_regulizer(model, train_data)
 p2 = round(log10(ar))
 
-l = mse_loss(model, train_data)
+l = sum_loss(model, train_data)
 
 # initialization of hyperparameters
 history = []
@@ -71,7 +71,7 @@ function train_reg_activation(model, opt, train, loss; history = [],
         history = (
             smooth_acc=[accuracy(train, model)],
             discrete_acc=[accuracy(train, binact_model)],
-            loss=[mse_loss(model, train)],
+            loss=[sum_loss(model, train)],
             λ2=[λ2],
             ar=[ar],
             )
@@ -102,7 +102,7 @@ function train_reg_activation(model, opt, train, loss; history = [],
         
         push!(history.smooth_acc, acc)
         push!(history.discrete_acc, discrete_acc)
-        push!(history.loss, mse_loss(model, train))
+        push!(history.loss, sum_loss(model, train))
         push!(history.λ2, λ2)
         push!(history.ar, ar)
 
