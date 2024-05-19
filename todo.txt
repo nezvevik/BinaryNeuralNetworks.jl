@@ -1,0 +1,10 @@
+(1) Binary Quantizer
+    - pridat upravovani t1 a t2 v prubehu
+
+
+(2) Regularization
+    - nakonci optimalizovat t1 a t2 na nejlepsi accuracy
+
+
+(3) Ruzne datasety
+
