@@ -18,8 +18,8 @@ include("regulizers/ternary_regulizer.jl")
 include("quantizers/ternary_quantizer.jl")
 include("quantizers/binary_quantizer.jl")
 
-include("layers/binary_layer.jl")
-include("layers/regularized_layer.jl")
+include("layers/ste_layer.jl")
+include("layers/bt_layer.jl")
 include("layers/psa_layer.jl")
 
 include("utils.jl")

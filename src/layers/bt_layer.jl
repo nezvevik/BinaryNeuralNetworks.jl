@@ -62,18 +62,6 @@ function BTLayer(
         weight_regulizer, output_regularizer, bn)
 end
 
-
-
-
-# function BTLayer(
-#     l::BTLayer;
-#     θ=get_ternary_W(l),
-#     output_quantizer=ternary_quantizer,
-#     kwargs...
-# )
-#     return BTLayer()
-# end
-
 function get_W(l::BTLayer)
     return l.weight_compressor.(l.θ)
 end
