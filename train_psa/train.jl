@@ -1,4 +1,4 @@
-using BinaryNeuralNetwork: PSALayer, psa_binary, psa_ternary, convert2discrete
+using BinaryNeuralNetwork: PSALayer, psa_binary, psa_ternary, convert2discrete, STELayer
 using Flux: Chain, relu, logitcrossentropy
 using Random
 
@@ -13,10 +13,15 @@ model = Chain(
     PSALayer(256, 10, identity, true)
 )
 
+model = Chain(
+    STELayer(28^2, 256, tanh, true),
+    STELayer(256, 10, tanh, true)
+)
+
 accuracy(train_data, model)
 accuracy(test_data, model)
 
-train_psa!(model, AdaBelief(), train_data, test_data, epochs=6, loss=logitcrossentropy)
+train_psa!(model, AdaBelief(), train_data, test_data, epochs=15, loss=logitcrossentropy)
 
 ps = params(model)
 x , y = first(train_data)

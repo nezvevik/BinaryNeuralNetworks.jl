@@ -1,4 +1,4 @@
-name = "BinaryNeuralNetwork"
+name = "BTNNs"
 uuid = "65155fda-d270-49d7-a45d-b461905bab82"
 authors = ["nezvevik <viktor.nezveda@gmail.com>"]
 version = "0.1.0"

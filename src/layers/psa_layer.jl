@@ -24,15 +24,6 @@ function PSALayer(
     return PSALayer(W, b, σ, psa_ternary, psa_binary, batchnorm ? BatchNorm(size(W, 1), identity) : identity)
 end
 
-function (l::PSALayer)(x::VecOrMat)
-    # θ = psa_ternary(l.W)
-    θ = l.weight_sampler(l.W)
-    o = l.σ.(l.batchnorm(θ * x .+ l.b))
-    # o = l.σ.(l.batchnorm(θ * x .+ l.b))
-    return l.output_sampler(o)
-    # l.output_sampler((tanh.(o) .+ 1) ./ 2)
-    # l.output_sampler((tanh.(o) .+ 1) ./ 2)
-end
 
 function (l::PSALayer)(x::VecOrMat)
     θ = l.weight_sampler(l.W)
@@ -75,10 +66,10 @@ function ChainRulesCore.rrule(::typeof(_psa_binary), x::AbstractMatrix)
     function _psa_binary_pullback(Δy)
         # vase implementace
         # return NoTangent(), -2 .* o .* Δy
-        return NoTangent(), 2 .* Δy
-
+        
         # zkopirovano z STE
-        # return NoTangent(), Δy
+        # return NoTangent(), 2 .* Δy
+        return NoTangent(), Δy
     end
     o, _psa_binary_pullback
 end
@@ -100,5 +91,5 @@ psa_ternary(x::AbstractMatrix) = _psa_ternary(tanh.(x))
  
  function convert2discrete(l::PSALayer)
     # RegularizedLayer(l.ρ.(l.W), l.b, binary_quantizer, identity, l.batchnorm)
-    RegularizedLayer(l.weight_sampler(copy(l.W)), l.b, l.output_sampler, identity, identity , identity, l.batchnorm)
+    BTLayer(l.weight_sampler(copy(l.W)), l.b, l.output_sampler, identity, identity , identity, l.batchnorm)
 end

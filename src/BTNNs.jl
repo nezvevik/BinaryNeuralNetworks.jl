@@ -1,4 +1,4 @@
-module BinaryNeuralNetwork
+module BTNNs
 
 using Flux
 using Flux: Params, create_bias, BatchNorm
@@ -10,18 +10,17 @@ using Statistics: mean
 
 using ChainRulesCore
 
-include("layers/feature_quantizer.jl")
-
-include("regulizers/binary_regulizer.jl")
-include("regulizers/ternary_regulizer.jl")
 
 include("quantizers/ternary_quantizer.jl")
 include("quantizers/binary_quantizer.jl")
 
+include("feature_quantizer.jl")
 include("layers/ste_layer.jl")
 include("layers/bt_layer.jl")
 include("layers/psa_layer.jl")
 
 include("utils.jl")
+include("convertors.jl")
+include("regularizers.jl")
 
-end # module BinaryNeuralNetwork
+end # module BTNNs

@@ -18,3 +18,12 @@ function ChainRulesCore.rrule(::typeof(binary_quantizer), x)
     end
     return y, binary_quantizer_pullback
 end
+
+function ChainRulesCore.rrule(::typeof(binary_quantizer), x::AbstractMatrix)
+    project_x = ProjectTo(x)
+    o = binary_quantizer.(x)
+    function binary_quantizer_pullback(Δy)
+        return NoTangent(), Δy
+    end
+    o, binary_quantizer_pullback
+end
