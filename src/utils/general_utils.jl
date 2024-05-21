@@ -9,3 +9,7 @@ function accuracy(data_loader, model)
     end
     return acc / num
 end
+
+function error(data_loader, model)
+    return 1 - accuracy(data_loader, model)
+end

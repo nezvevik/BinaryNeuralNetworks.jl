@@ -2,20 +2,20 @@ using MLDatasets, CUDA
 using Flux.Data: DataLoader
 using Flux: onehotbatch, flatten, shuffle!
 
-using BinaryNeuralNetwork: binary_quantizer
-using BinaryNeuralNetwork: FeatureQuantizer
+using BTNNs: binary_quantizer, FeatureQuantizer
 
 function createloader_MNIST(batchsize::Int=256)
     xtrain, ytrain = MLDatasets.MNIST(:train)[:]
     train_loader = DataLoader(
-        (binary_quantizer(flatten(xtrain)), onehotbatch(ytrain, 0:9));
+        # (binary_quantizer(flatten(xtrain)), onehotbatch(ytrain, 0:9));
+        (binary_quantizer(2 * flatten(xtrain) .- 1), onehotbatch(ytrain, 0:9));
         batchsize,
         shuffle=true,
         )
         
         xtest, ytest = MLDatasets.MNIST(:test)[:]
         test_loader = DataLoader(
-            (binary_quantizer(flatten(xtest)), onehotbatch(ytest, 0:9));
+            (binary_quantizer(2 * flatten(xtest) .- 1), onehotbatch(ytest, 0:9));
             batchsize,
             shuffle=true,
     )

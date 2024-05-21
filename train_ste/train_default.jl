@@ -1,5 +1,5 @@
 using BTNNs: BTLayer, ternary_quantizer, binary_quantizer, get_binary_regularizer, get_ternary_regularizer
-using BTNNs: get_ternary_W, convert2binary_activation, convert2discrete, convert2ternary_weights, get_W
+using BTNNs: get_ternary_W, convert2binary_activation, convert2discrete, convert2ternary_weights
 using BTNNs: activation_regularizer, weight_regularizer, set_output_regularizer
 using Flux: Chain, Dense, logitcrossentropy
 

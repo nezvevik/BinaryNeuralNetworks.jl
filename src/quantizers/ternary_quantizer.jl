@@ -28,6 +28,10 @@ function ChainRulesCore.rrule(::typeof(ternary_quantizer), x::AbstractMatrix)
     o, ternary_quantizer_pullback
 end
 
+function get_ternary_quantizer(t1::Real=-0.5, t2::Real=0.5)
+    return f(x) = ternary_quantizer(x, t1, t2)
+end
+
 
 # function ChainRulesCore.rrule(::typeof(ternary_quantizer), x)
 #     y = ternary_quantizer(x)

@@ -32,5 +32,5 @@ function activation_regularizer(m::Union{Chain, BTLayer}, data::DataLoader)
     for (x, _) in data
         r += activation_regularizer(m, x)
     end
-    return r / (length(data)  * data.batchsize)
+    return r / (length(data))
 end

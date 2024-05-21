@@ -15,12 +15,15 @@ include("quantizers/ternary_quantizer.jl")
 include("quantizers/binary_quantizer.jl")
 
 include("feature_quantizer.jl")
-include("layers/ste_layer.jl")
 include("layers/bt_layer.jl")
 include("layers/psa_layer.jl")
 
-include("utils.jl")
+
 include("convertors.jl")
 include("regularizers.jl")
+
+include("utils/general_utils.jl")
+include("utils/train_utils.jl")
+include("utils/graph_utils.jl")
 
 end # module BTNNs

@@ -42,9 +42,18 @@ function BTLayer(
         weight_regularizer, output_regularizer, bn)
 end
 
+function RLayer(
+    in::Integer, out::Integer, σ::Function=tanh, weight_compressor::Function=tanh,
+    wr::Function=get_ternary_regularizer(1.0), or::Function=get_binary_regularizer(1.0))
+    return BTLayer(
+        in, out, σ,
+        weight_compressor, get_ternary_quantizer(), binary_quantizer,
+        wr, or)
+end
+
 function DSTLayer(
     in::Integer, out::Integer, σ::Function=identity,
-    weight_compressor::Function=tanh, bq::Function=identity, tq::Function=identity)
+    weight_compressor::Function=tanh, bq::Function=binary_quantizer, tq::Function=get_ternary_quantizer())
     return BTLayer(
         in, out,
         bq ∘ weight_compressor, tq ∘ σ)
@@ -81,19 +90,27 @@ function (l::BTLayer)(xr::Tuple)
 end
 
 
-function set_output_regularizer(l::BTLayer, output_regularizer::Function)
-    l.output_regularizer = output_regularizer
+function set_output_regularizer(l::BTLayer, or::Function)
+    l.output_regularizer = or
 end
 
-function set_output_regularizer(m::Chain, β::Function)
-    Chain(map(layer -> set_output_regularizer(layer, β), m.layers))
+function set_output_regularizer(m::Chain, or::Function)
+    Chain(map(layer -> set_output_regularizer(layer, or), m.layers))
 end
 
-function set_weight_regularizer(l::BTLayer, weight_regularizer::Function)
-    l.weight_regularizer = weight_regularizer
+function set_weight_regularizer(l::BTLayer, wr::Function)
+    l.weight_regularizer = wr
 end
 
-function set_weight_regularizer(m::Chain, τ::Function)
-    Chain(map(layer -> set_weight_regularizer(layer, τ), m.layers))
+function set_weight_regularizer(m::Chain, wr::Function)
+    Chain(map(layer -> set_weight_regularizer(layer, wr), m.layers))
+end
+
+function set_weight_quantizer(l::BTLayer, wq::Function)
+    l.weight_quantizer = wq
+end
+
+function set_weight_quantizer(m::Chain, wq::Function)
+    Chain(map(layer -> set_weight_quantizer(layer, wq), m.layers))
 end
 
