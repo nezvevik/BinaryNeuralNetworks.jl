@@ -1,4 +1,4 @@
-using BinaryNeuralNetwork: PSALayer, psa_binary, psa_ternary, convert2discrete, STELayer
+using BTNNs: PSALayer, psa_binary, psa_ternary, convert2discrete
 using Flux: Chain, relu, logitcrossentropy
 using Random
 
@@ -13,10 +13,9 @@ model = Chain(
     PSALayer(256, 10, identity, true)
 )
 
-model = Chain(
-    STELayer(28^2, 256, tanh, true),
-    STELayer(256, 10, tanh, true)
-)
+x = first(train_data)[1]
+
+model(x)
 
 accuracy(train_data, model)
 accuracy(test_data, model)
@@ -66,3 +65,18 @@ discrete = convert2discrete(model)
 
 accuracy(train_data, discrete)
 accuracy(test_data, discrete)
+
+
+function func(x::Real)
+    fx = floor(x)
+    fx + (_psa_binary(x - fx) + 1) / 2
+end
+
+function func2(x::Real)
+    
+end
+
+
+function _psa_binary(p::T) where {T<:Real}
+    rand() > (1-p) ? one(T) : -one(T)
+end

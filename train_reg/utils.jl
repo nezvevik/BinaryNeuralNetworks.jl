@@ -306,7 +306,7 @@ function show_all_accuracies(history, show_legend=true)
             # lines!(ax1, [period, period], color = :black, linestyle = :dash)
             lines!(ax1, [(period, 0), (period, 1)], color = :black, linestyle = :dash)
         end
-end
+    end
 
 
     lines!(ax1, history.smooth_acc, color = :red, label="smooth acc")

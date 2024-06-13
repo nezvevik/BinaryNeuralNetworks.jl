@@ -22,8 +22,8 @@ function BTLayer(
     
     weight_compressor::Function=tanh,
 
-    weight_quantizer::Function=identity,
-    output_quantizer::Function=identity,
+    weight_quantizer::Function=get_ternary_quantizer(-0.5,0.5),
+    output_quantizer::Function=binary_quantizer,
 
     weight_regularizer::Function=get_ternary_regularizer(1.0),
     output_regularizer::Function=get_binary_regularizer(1.0),
@@ -47,17 +47,22 @@ function RLayer(
     wr::Function=get_ternary_regularizer(1.0), or::Function=get_binary_regularizer(1.0))
     return BTLayer(
         in, out, σ,
-        weight_compressor, get_ternary_quantizer(), binary_quantizer,
+        weight_compressor, get_ternary_quantizer(-0.5,0.5), binary_quantizer,
         wr, or)
 end
 
-function DSTLayer(
-    in::Integer, out::Integer, σ::Function=identity,
-    weight_compressor::Function=tanh, bq::Function=binary_quantizer, tq::Function=get_ternary_quantizer())
-    return BTLayer(
-        in, out,
-        bq ∘ weight_compressor, tq ∘ σ)
-end
+# function DSTLayer(
+#     in::Integer, out::Integer, σ::Function=identity,
+#     wc::Function=tanh, bq::Function=binary_quantizer, tq::Function=ternary_quantizer)
+#     # return BTLayer(
+#     #     in, out,
+#     #     bq ∘ σ, tq ∘ wc)
+#     f1(x) = bq(σ(x))
+#     f2(x) = tq(wc(x))
+#     return BTLayer(
+#         in, out,
+#         f1, f2)
+# end
 
 # function PSTLayer(
 #     in::Integer, out::Integer, σ::Function=identity,

@@ -37,7 +37,7 @@ function createloader_Wine(k=1, train_proportion=0.8)
 
     train_loader = DataLoader(
         (fq(X[:,train_idx]), onehotbatch(Y[train_idx], 1:3)),
-        batchsize=length(train_idx),
+        batchsize=12,
     )
 
     test_loader = DataLoader(

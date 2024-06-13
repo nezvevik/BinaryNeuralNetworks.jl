@@ -69,6 +69,7 @@ function ChainRulesCore.rrule(::typeof(_psa_binary), x::AbstractMatrix)
         
         # zkopirovano z STE
         # return NoTangent(), 2 .* Δy
+        # return NoTangent(), sign.(Δy)
         return NoTangent(), Δy
     end
     o, _psa_binary_pullback
@@ -78,10 +79,10 @@ end
 psa_ternary(x::Real) = _psa_ternary(tanh(x))
 psa_ternary(x::AbstractMatrix) = _psa_ternary(tanh.(x))
 
- function _psa_ternary(x::Real)
+function _psa_ternary(x::Real)
     fx = floor(x)
-    δ = fx + (_psa_binary(x - fx) + 1) / 2
- end
+    δ = fx + (_psa_binary(x - fx) + 1) / 2  
+end
 
  function _psa_ternary(x::AbstractMatrix)
     fx = floor.(x)
@@ -93,3 +94,4 @@ psa_ternary(x::AbstractMatrix) = _psa_ternary(tanh.(x))
     # RegularizedLayer(l.ρ.(l.W), l.b, binary_quantizer, identity, l.batchnorm)
     BTLayer(l.weight_sampler(copy(l.W)), l.b, l.output_sampler, identity, identity , identity, l.batchnorm)
 end
+

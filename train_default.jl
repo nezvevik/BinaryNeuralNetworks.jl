@@ -8,25 +8,11 @@ include("../data/datasets.jl")
 
 train_data, test_data = createloader_MNIST()
 
-train_data, test_data = createloader_Flower(2000, 900, k)
-input_size = size(first(train_data)[1], 1)
-nclasses = size(first(train_data)[2], 1)
-
 model = Chain(
     RLayer(28^2, 256, tanh),
-    RLayer(256, 100, tanh),
-    RLayer(100, 10, tanh)
+    RLayer(256, 10, tanh)
 )
 
-model = Chain(
-    RLayer(input_size, 20, tanh),
-    RLayer(20, nclasses, tanh)
-)
-
-
-discrete = convert2discrete(model)
-accuracy(train_data, discrete)
-accuracy(test_data, discrete)
 
 loss=logitcrossentropy
 
@@ -53,19 +39,18 @@ ar = activation_regularizer(model, train_data)
 
 λ1min, λ1max = get_λ_range(wr, l)
 λ2min, λ2max = get_λ_range(ar, l)
-λ1min, λ1max = get_λ_range(wr, l) .* 50
-λ2min, λ2max = get_λ_range(ar, l) .* 50
 
 history = []
 periods = 1
-epochs = 200
+epochs = 10
 
 update_λ1(λ1min, λ1max, i, epochs) = 0f0
 update_λ1(λ1min, λ1max, i, epochs) = λ1min + 1/2 * (λ1max - λ1min) * (1 + cos(i/(epochs) * π))
 update_λ2(λ2min, λ2max, i, epochs) = 0f0
 update_λ2(λ2min, λ2max, i, epochs) = λ2min + 1/2 * (λ2max - λ2min) * (1 + cos(i/(epochs) * π))
 
-history = train_reg_no_log!(model, AdaBelief(), train_data, objective;
+
+history = train_reg!(model, AdaBelief(), train_data, objective;
     history=history, periods=periods, epochs=epochs,
     update_λ1=update_λ1,
     update_λ2=update_λ2,
@@ -195,7 +180,7 @@ function train_reg!(model, opt, train, objective;
     return history
 end
 
-function train_reg_no_log!(model, opt, train, test, objective;
+function train_reg_no_log!(model, opt, train, objective;
     history = [],
     update_λ1=update_λ1, update_λ2=update_λ2,
     weight_regularizer=weight_regularizer, activation_regularizer=activation_regularizer,
@@ -216,7 +201,6 @@ function train_reg_no_log!(model, opt, train, test, objective;
         history = (
             smooth_acc=[accuracy(train, model)],
             discrete_acc=[accuracy(train, discrete_model)],
-            discrete_test_acc=[accuracy(test, discrete_model)],
             loss=[mean_loss(model, train)],
             λ1=[λ1],
             λ2=[λ2],
@@ -238,7 +222,6 @@ function train_reg_no_log!(model, opt, train, test, objective;
             discrete_model = convert2discrete(model)
             testmode!(discrete_model)
             discrete_acc = accuracy(train, discrete_model)
-            discrete_test_acc = accuracy(test, discrete_model)
     
 
             # update λ
@@ -247,7 +230,6 @@ function train_reg_no_log!(model, opt, train, test, objective;
             
             push!(history.smooth_acc, acc)
             push!(history.discrete_acc, discrete_acc)
-            push!(history.discrete_test_acc, discrete_test_acc)
             push!(history.loss, mean_loss(model, train))
             push!(history.λ1, λ1)
             push!(history.λ2, λ2)
@@ -258,7 +240,6 @@ function train_reg_no_log!(model, opt, train, test, objective;
                 (:epoch, e),
                 (:smooth_acc, round(100 * history.smooth_acc[end]; digits=2)),
                 (:discrete_acc, round(100 * history.discrete_acc[end]; digits=2)),
-                (:discrete_test_acc, round(100 * history.discrete_acc[end]; digits=2)),
                 (:loss, round(history.loss[end]; digits=4)),
                 (:λ1, λ1),
                 (:λ2, λ2),
@@ -272,27 +253,29 @@ end
 
 using BTNNs: get_ternary_quantizer, accuracy
 
-T = (5:30) ./ 40
-accuracies = zeros(Float32, 2, length(T))
+T1 = [-0.5, -0.45, -0.43, -0.42, -0.4,-0.38, -0.35]
+T2 = [0.3, 0.35, 0.4, 0.42, 0.44, 0.45, 0.46, 0.5]
 
-best_t, best_acc = 0, 0, 0
-best_acc
 
-for (i, t) in enumerate(T)
-    treshold = t / 40
-    set_weight_quantizer(model, get_ternary_quantizer(-treshold, treshold))
-    discrete = convert2discrete(model)
-    acc = accuracy(train_data, discrete)
-    test_a = accuracy(test_data, discrete)
-    
-    accuracies[1, i] = acc
-    accuracies[2, i] = test_a
-    
-    if acc > best_acc
-        best_acc = acc
-        best_t = treshold
+best_t1, best_t2, best_acc = 0, 0, 0
+
+best_t1, best_t2, best_acc
+
+for t1 in T1
+    for t2 in T2
+        if t1 >= t2 continue end
+        set_weight_quantizer(model, get_ternary_quantizer(t1, t2))
+        discrete = convert2discrete(model)
+        acc = accuracy(train_data, discrete)
+        if acc > best_acc
+            best_acc = acc
+            best_t1 = t1
+            best_t2 = t2
+        end
+        println(acc)
     end
 end
-accuracies[1,end-1]
-accuracies[2,end-1]
-round.(100 .* accuracies; digits=2)
+
+best_acc
+
+best_t1, best_t2

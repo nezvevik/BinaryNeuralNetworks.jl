@@ -1,4 +1,6 @@
+using DelimitedFiles: writedlm
 using Flux: flatten, onecold
+using CairoMakie: save
 
 function accuracy(data_loader, model)
     acc = 0
@@ -12,4 +14,12 @@ end
 
 function error(data_loader, model)
     return 1 - accuracy(data_loader, model)
+end
+
+function save_csv(name, history)
+    writedlm("history/" + name + ".csv", history)
+end
+
+function save_fig(name, f)
+    save("history/" + name + ".png", f)
 end

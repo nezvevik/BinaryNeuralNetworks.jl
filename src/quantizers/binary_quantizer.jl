@@ -8,6 +8,7 @@ function binary_quantizer(x::AbstractArray{T}) where T
 end
 
 function ChainRulesCore.rrule(::typeof(binary_quantizer), x)
+    println("jsem tady")
     y = binary_quantizer(x)
     function binary_quantizer_pullback(ȳ)
         # parametry -1 1 ternary quantizeru
